@@ -7,6 +7,7 @@ target audience.
 - **Stack:** Python 3.10+, FastAPI, Uvicorn, Pydantic v2, HTTPX, BeautifulSoup, python-dotenv
 - **Endpoint:** `POST http://localhost:4000/link-analysis`
 - **Docs (Swagger UI):** http://localhost:4000/docs
+- **Live demo (Vercel):** https://dxora-python-test.vercel.app/docs
 - **LLM:** Google Gemini (`gemini-3.5-flash-lite`, fallback `gemini-3.8-flash`) by default, both with a **free tier**, also supports OpenAI (and OpenAI-compatible APIs) and Anthropic Claude, chosen in `.env`
 - **No mock mode.** Every result comes from a real page fetch and a real LLM call. If something fails, the API says so.
 
@@ -102,32 +103,33 @@ Produced on 17 Nov 2026 by the deployed app (Vercel, `gemini-3.5-flash-lite`) fo
 {
   "success": true,
   "website": "https://osama-sadek-dev.vercel.app/",
-  "brand": { "name": "Osama Sadek", "category": "AI Development & Automation Consulting", "summary": "Osama Sadek is an AI Maker and Automation Architect with over 4 years of experience ..." },
+  "brand": { "name": "Osama Sadek", "category": "AI Development & Automation", "summary": "Osama Sadek is an AI Maker & Automation Architect specializing in building production-ready apps via AI orchestration, RAG, and full-stack delivery." },
   "analysis": {
     "competitor_analysis": {
-      "business_category": "Freelance AI Engineering & Software Architecture",
+      "business_category": "Freelance AI Engineering & Full-Stack Development",
       "competitors": [
-        { "name": "Toptal", "website": "https://toptal.com", "weaknesses": ["High hourly rates", "..."], "source": "ai_suggestion" },
-        { "name": "Upwork", "website": "https://upwork.com", "weaknesses": ["High competition with low-quality providers", "..."], "source": "ai_suggestion" }
+        { "name": "Upwork", "website": "https://upwork.com", "weaknesses": ["High platform fees", "..."], "source": "ai_suggestion" },
+        { "name": "Toptal", "website": "https://toptal.com", "weaknesses": ["Expensive hourly rates", "..."], "source": "ai_suggestion" },
+        { "name": "Braintrust", "website": "https://usebraintrust.com", "weaknesses": ["Complex tokenomics and governance structure", "..."], "source": "ai_suggestion" }
       ]
     },
     "target_search_queries": [
-      { "query": "hire AI automation engineer", "platforms": ["Google", "LinkedIn"], "intent": "commercial", "target_audience": "Startup founders and CTOs looking for AI talent" }
+      { "query": "hire AI automation engineer", "platforms": ["Google", "LinkedIn"], "intent": "Commercial", "target_audience": "Startup founders and tech leads" }
     ],
     "seo_improvements": {
       "primary_keyword": "AI Automation Engineer",
-      "recommended_title": "Osama Sadek — AI Automation Engineer & AI Maker",
+      "recommended_title": "Osama Sadek | AI Automation Engineer & AI Maker",
       "current_title": "Osama Sadek — AI Maker & AI Automation Engineer"
     },
     "top_services": [
-      { "name": "AI Automation Pipelines", "target_industry": "Logistics, Legal, Operations", "source": "website" },
-      { "name": "AI System Architecture Consulting", "source": "inferred" }
+      { "name": "AI Automation Architectures", "target_industry": "Logistics, Legal, Tech", "source": "website" },
+      { "name": "AI Product Strategy & Prompt Engineering", "source": "inferred" }
     ],
-    "target_audience": { "primary_audience": ["Startup Founders", "CTOs", "Product Managers"], "geographic_focus": "Global / Remote Worldwide" }
+    "target_audience": { "primary_audience": ["Startup Founders", "CTOs", "Product Managers"], "geographic_focus": "Worldwide (Remote)" }
   },
   "notes": ["Competitors are AI-generated suggestions ...", "Search volumes are not included ..."],
-  "meta": { "llm_provider": "gemini", "llm_model": "gemini-3.5-flash-lite", "input_tokens": 1169, "output_tokens": 2314,
-            "llm_latency_ms": 6849, "total_latency_ms": 7028, "cached": false, "content_chars": 964, "content_truncated": false }
+  "meta": { "llm_provider": "gemini", "llm_model": "gemini-3.5-flash-lite", "input_tokens": 1185, "output_tokens": 2332,
+            "llm_latency_ms": 13350, "total_latency_ms": 13566, "cached": false, "content_chars": 964, "content_truncated": false }
 }
 ```
 
@@ -174,7 +176,7 @@ The tests run offline (no network, no API keys); the LLM and HTTP fetch are repl
 python -m pytest -v
 ```
 
-They cover URL/SSRF validation, redirect re-validation, HTTP error mapping, HTML extraction, JSON parsing, competitor
+The suite has 51 tests. They cover URL/SSRF validation, redirect re-validation, HTTP error mapping, HTML extraction, JSON parsing, competitor
 cleanup, retry and fallback logic, caching and every error status.
 
 ## Project structure
@@ -233,7 +235,7 @@ Cost = `6000 × input + 2500 × output`; thinking tokens, if any, are billed as 
 
 | Criteria | Notes |
 |---|---|
-| Response speed | **Not measured here.** Expect roughly 5-30 s per analysis because the answer is ~2,500 tokens of JSON; small "flash / lite / nano / haiku" models are the fastest options. The API returns the measured `llm_latency_ms` of each call so you can fill the table below |
+| Response speed | **Measured only for `gemini-3.5-flash-lite`:** 6.4-13.4 s for the LLM call in 3 runs (section D). Other models were **not** measured; small "flash / lite / nano / haiku" models are expected to be the fastest. The API returns the measured `llm_latency_ms` of each call |
 | Accuracy | **Not benchmarked.** One third-party test reported that Haiku 5.5 used about 3x more output tokens per task than GPT-6 Luna, which would raise its real cost above the estimate |
 | JSON reliability | Gemini and OpenAI offer a JSON mode; Claude relies on the prompt. In all cases the app parses and validates the result with Pydantic and retries once, then falls back to a second model |
 
@@ -242,7 +244,7 @@ Cost = `6000 × input + 2500 × output`; thinking tokens, if any, are billed as 
 Priority for this project: low cost, reliable JSON, good understanding of a page's content.
 
 - **Default: `gemini-3.5-flash-lite`.** It has a **free tier** (development, tests and demo cost nothing), a native JSON
-  mode, a low paid price, and it was the model that answered reliably and quickly in my real runs (about 7 s per analysis).
+  mode, a low paid price, and it was the model that answered reliably and quickly in my real runs (7-13 s per analysis, 3 runs).
 - **Automatic fallback: `gemini-3.8-flash`** (also free-tier, stronger but pricier). It is used when the main model is
   rate limited, down or returns an invalid answer twice. In my first local run the larger model was the main one and about
   100 s were lost before the fallback answered (cause not diagnosed; Gemini also returned a transient HTTP 503 once), which is
@@ -271,10 +273,10 @@ Priority for this project: low cost, reliable JSON, good understanding of a page
 |---|---|
 | Recommended provider / model | **Google Gemini / `gemini-3.5-flash-lite`** (free tier for development and demo) |
 | Fallback model | `gemini-3.8-flash` (automatic); alternative provider: Anthropic `claude-haiku-5-5` |
-| Input tokens | **Measured:** 1,169 on a small page (964 characters of text). **Estimated:** ~6,000 for a typical company page (capped by `MAX_CONTENT_CHARS`) |
-| Output tokens | **Measured:** 2,314-2,362. Estimated ~2,500 |
+| Input tokens | **Measured:** 1,169-1,185 on a small page (964 characters of text). **Estimated:** ~6,000 for a typical company page (capped by `MAX_CONTENT_CHARS`) |
+| Output tokens | **Measured:** 2,314-2,362 (3 runs). Estimated ~2,500 |
 | Cost per analysis | **$0 on the free tier.** Paid, at the measured tokens: ~$0.006 (flash-lite), ~$0.0095 (3.8 Flash until 31 Dec 2026), ~$0.0013 (Haiku 5.5, but see the note on its token use above). At the estimated 6,000 / 2,500 tokens: ~$0.008 (flash-lite) |
-| Response time | **Measured:** about 6.4-6.8 s for the LLM call and 7.0 s end to end on the deployed app |
+| Response time | **Measured:** 6.4-13.4 s for the LLM call (3 runs) and 7.0-13.6 s end to end on the deployed app; latency varies between calls |
 | Reason | Free to develop and demo, native JSON mode, small paid price, fast in practice, and a second free-tier model as fallback |
 | Balancing accuracy, speed, cost | Cheap, fast model by default; strict validation; one retry; automatic fallback to a larger model; cache for repeats; upgrade to a larger model only if your own evaluation shows the cheap one is not good enough |
 
@@ -291,8 +293,9 @@ Real runs (author's portfolio site, `https://osama-sadek-dev.vercel.app`):
 |---|---|---|---|---|---|---|---|
 | 1 | Local, Swagger | gemini-3.5-flash-lite (fallback) | 1,169 | 2,362 | 6,407 | 107,734 | Main model at that time (`gemini-3.8-flash`) did not answer; ~100 s lost before the fallback |
 | 2 | Vercel production | gemini-3.5-flash-lite | 1,169 | 2,314 | 6,849 | 7,028 | Models set through environment variables |
+| 3 | Vercel production (after the "3+ competitors" prompt change) | gemini-3.5-flash-lite | 1,185 | 2,332 | 13,350 | 13,566 | 3 competitors returned; slower than run 2, so latency varies between calls |
 
-Add more rows by calling the API on other websites and copying the numbers from `meta`.
+All three runs used the same small website. Add more rows by calling the API on other websites and copying the numbers from `meta`.
 
 ## Evidence of a real run
 
