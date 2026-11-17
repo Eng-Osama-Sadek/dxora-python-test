@@ -85,6 +85,7 @@ def _env(monkeypatch):
     monkeypatch.setenv("LLM_MODEL", "model-a")
     monkeypatch.setenv("LLM_FALLBACK_MODEL", "model-b")
     analysis_service.clear_cache()
+    monkeypatch.setattr(analysis_service, "RETRY_DELAY_SECONDS", 0)
 
     async def public_dns(host: str) -> list[str]:
         return ["93.184.216.34"]
@@ -368,3 +369,38 @@ def test_unreachable_website_status_is_passed_through(monkeypatch):
 
 def test_health():
     assert client.get("/health").json() == {"status": "ok"}
+
+
+def test_transient_provider_error_is_retried_on_the_same_model(monkeypatch):
+    transient = LLMError("Gemini is temporarily unavailable (HTTP 503).", retryable=True, upstream_status=503)
+    fake = use_llm(monkeypatch, transient, valid_llm_json())
+    response = client.post("/link-analysis", json={"url": "https://acme.test"})
+    assert response.status_code == 200
+    assert [c["model"] for c in fake.calls] == ["model-a", "model-a"]
+    assert response.json()["meta"]["llm_model"] == "model-a"
+
+
+def test_persistent_provider_error_falls_back_then_fails(monkeypatch):
+    transient = LLMError("Gemini is temporarily unavailable (HTTP 503).", retryable=True, upstream_status=503)
+    fake = use_llm(monkeypatch, transient)
+    response = client.post("/link-analysis", json={"url": "https://acme.test"})
+    assert response.status_code == 502
+    assert [c["model"] for c in fake.calls] == ["model-a", "model-a", "model-b", "model-b"]
+
+
+def test_default_models_per_provider(monkeypatch):
+    from app.config import get_settings
+
+    for name in ("LLM_MODEL", "LLM_FALLBACK_MODEL"):
+        monkeypatch.delenv(name, raising=False)
+    settings = get_settings()
+    assert (settings.llm_model, settings.llm_fallback_model) == ("gemini-3.5-flash-lite", "gemini-3.8-flash")
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    assert get_settings().llm_model == "claude-haiku-5-5"
+    monkeypatch.setenv("LLM_FALLBACK_MODEL", "none")
+    assert get_settings().llm_fallback_model == ""
+
+
+def test_root_redirects_to_docs():
+    response = client.get("/", follow_redirects=False)
+    assert response.status_code in (302, 307) and response.headers["location"] == "/docs"

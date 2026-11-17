@@ -19,11 +19,19 @@ MAX_OUTPUT_TOKENS = 8192
 class LLMError(Exception):
     """Any problem talking to the LLM provider. `status_code` is what our API returns."""
 
-    def __init__(self, message: str, *, status_code: int = 502, retryable: bool = False) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int = 502,
+        retryable: bool = False,
+        upstream_status: int | None = None,
+    ) -> None:
         super().__init__(message)
         self.message = message
         self.status_code = status_code
         self.retryable = retryable  # True -> worth trying the fallback model
+        self.upstream_status = upstream_status  # HTTP status returned by the provider, if any
 
 
 class LLMNotConfigured(LLMError):
@@ -80,7 +88,9 @@ def _check(response: httpx.Response, provider: str) -> None:
     if code == 404:
         raise LLMError(f"Model not found on {provider} (HTTP 404). Check LLM_MODEL.", retryable=True)
     if code >= 500:
-        raise LLMError(f"{provider} is temporarily unavailable (HTTP {code}).", retryable=True)
+        raise LLMError(
+            f"{provider} is temporarily unavailable (HTTP {code}).", retryable=True, upstream_status=code
+        )
     detail = ""
     try:
         detail = str(response.json().get("error", {}).get("message", ""))[:200]

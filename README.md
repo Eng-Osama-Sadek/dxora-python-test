@@ -7,7 +7,7 @@ target audience.
 - **Stack:** Python 3.10+, FastAPI, Uvicorn, Pydantic v2, HTTPX, BeautifulSoup, python-dotenv
 - **Endpoint:** `POST http://localhost:4000/link-analysis`
 - **Docs (Swagger UI):** http://localhost:4000/docs
-- **LLM:** Google Gemini by default (has a **free tier**), also supports OpenAI (and OpenAI-compatible APIs) and Anthropic Claude, chosen in `.env`
+- **LLM:** Google Gemini (`gemini-3.5-flash-lite`, fallback `gemini-3.8-flash`) by default, both with a **free tier**, also supports OpenAI (and OpenAI-compatible APIs) and Anthropic Claude, chosen in `.env`
 - **No mock mode.** Every result comes from a real page fetch and a real LLM call. If something fails, the API says so.
 
 ## Setup
@@ -88,13 +88,48 @@ A URL without a scheme (`example.com`) is accepted and defaults to `https://`.
     }
   },
   "notes": ["Competitors are AI-generated suggestions ...", "Search volumes are not included ..."],
-  "meta": { "llm_provider": "gemini", "llm_model": "gemini-3.8-flash", "input_tokens": 0, "output_tokens": 0,
+  "meta": { "llm_provider": "gemini", "llm_model": "gemini-3.5-flash-lite", "input_tokens": 0, "output_tokens": 0,
             "llm_latency_ms": 0, "total_latency_ms": 0, "cached": false, "content_chars": 0, "content_truncated": false }
 }
 ```
 
-> The block above only documents the response *shape*. After running the project with your own key, paste a
-> real response and screenshots into `docs/screenshots/` (see "Evidence of a real run" below).
+### Real sample (trimmed)
+
+Produced on 17 Nov 2026 by the deployed app (Vercel, `gemini-3.5-flash-lite`) for the author's own portfolio site
+`https://osama-sadek-dev.vercel.app`. Long lists are shortened with `...`; the full response was returned by the API.
+
+```json
+{
+  "success": true,
+  "website": "https://osama-sadek-dev.vercel.app/",
+  "brand": { "name": "Osama Sadek", "category": "AI Development & Automation Consulting", "summary": "Osama Sadek is an AI Maker and Automation Architect with over 4 years of experience ..." },
+  "analysis": {
+    "competitor_analysis": {
+      "business_category": "Freelance AI Engineering & Software Architecture",
+      "competitors": [
+        { "name": "Toptal", "website": "https://toptal.com", "weaknesses": ["High hourly rates", "..."], "source": "ai_suggestion" },
+        { "name": "Upwork", "website": "https://upwork.com", "weaknesses": ["High competition with low-quality providers", "..."], "source": "ai_suggestion" }
+      ]
+    },
+    "target_search_queries": [
+      { "query": "hire AI automation engineer", "platforms": ["Google", "LinkedIn"], "intent": "commercial", "target_audience": "Startup founders and CTOs looking for AI talent" }
+    ],
+    "seo_improvements": {
+      "primary_keyword": "AI Automation Engineer",
+      "recommended_title": "Osama Sadek — AI Automation Engineer & AI Maker",
+      "current_title": "Osama Sadek — AI Maker & AI Automation Engineer"
+    },
+    "top_services": [
+      { "name": "AI Automation Pipelines", "target_industry": "Logistics, Legal, Operations", "source": "website" },
+      { "name": "AI System Architecture Consulting", "source": "inferred" }
+    ],
+    "target_audience": { "primary_audience": ["Startup Founders", "CTOs", "Product Managers"], "geographic_focus": "Global / Remote Worldwide" }
+  },
+  "notes": ["Competitors are AI-generated suggestions ...", "Search volumes are not included ..."],
+  "meta": { "llm_provider": "gemini", "llm_model": "gemini-3.5-flash-lite", "input_tokens": 1169, "output_tokens": 2314,
+            "llm_latency_ms": 6849, "total_latency_ms": 7028, "cached": false, "content_chars": 964, "content_truncated": false }
+}
+```
 
 How the spec's honesty rules are handled:
 
@@ -162,9 +197,13 @@ tests/test_link_analysis.py
 
 ## Deploy on Vercel (optional)
 
-Import the repo in Vercel (FastAPI / Other), add the variables from `.env.example` in
-**Project → Settings → Environment Variables**, and redeploy. `vercel.json` raises the function limit to 60 s.
-The in-memory cache is per instance there.
+1. Import the repo in Vercel (framework: FastAPI / Other). `vercel.json` raises the function limit to 60 s.
+2. In **Project -> Settings -> Environment Variables** add `GEMINI_API_KEY` (type **Secret**, never commit it). The other
+   variables from `.env.example` are optional because the defaults are already `gemini-3.5-flash-lite` with
+   `gemini-3.8-flash` as fallback.
+3. **Redeploy** (variables only apply to new deployments), then open `/docs`.
+
+The in-memory cache is per serverless instance there.
 
 ---
 
@@ -176,7 +215,7 @@ The in-memory cache is per instance there.
 
 ## A. Comparison
 
-Typical call for this app (see section D): about **6,000 input + 2,500 output tokens**.
+Estimates below assume a typical company page: about **6,000 input + 2,500 output tokens**. A real run on a small page measured 1,169 input + 2,314 output tokens (see section D).
 
 | Provider | Model (API id) | Input / Output per 1M tokens | Est. cost per analysis | Free tier | JSON output | Context window |
 |---|---|---|---|---|---|---|
@@ -202,13 +241,15 @@ Cost = `6000 × input + 2500 × output`; thinking tokens, if any, are billed as 
 
 Priority for this project: low cost, reliable JSON, good understanding of a page's content.
 
-- **Default: `gemini-3.8-flash`.** It is the strongest Flash-class model with a **free tier**, so development, testing and
-  the demo cost nothing, and its paid price is still small (cents per analysis).
-- **Automatic fallback: `gemini-3.5-flash-lite`** (also free-tier). It is used when the main model is rate limited, down or
-  returns an invalid answer twice.
-- **Cheapest paid option at scale: `claude-haiku-5-5`** (about $0.002 per analysis on these assumptions). Switch with
+- **Default: `gemini-3.5-flash-lite`.** It has a **free tier** (development, tests and demo cost nothing), a native JSON
+  mode, a low paid price, and it was the model that answered reliably and quickly in my real runs (about 7 s per analysis).
+- **Automatic fallback: `gemini-3.8-flash`** (also free-tier, stronger but pricier). It is used when the main model is
+  rate limited, down or returns an invalid answer twice. In my first local run the larger model was the main one and about
+  100 s were lost before the fallback answered (cause not diagnosed; Gemini also returned a transient HTTP 503 once), which is
+  why the small model is now the default.
+- **Cheapest paid option at scale: `claude-haiku-5-5`** (about $0.001-0.002 per analysis on these token counts). Switch with
   `LLM_PROVIDER=anthropic`. If the quality of its competitor and SEO sections is not good enough in your own test,
-  use `claude-sonnet-5-5` as the stronger paid model.
+  use `claude-sonnet-5-5`.
 
 ## C. Cost optimization (implemented unless noted)
 
@@ -219,7 +260,7 @@ Priority for this project: low cost, reliable JSON, good understanding of a page
 4. **Single LLM call** produces all five sections (no per-section calls).
 5. **Cheap model first, stronger model only as fallback**, never the other way round.
 6. **Cache:** the same URL + model is answered from an in-memory TTL cache (`CACHE_TTL_SECONDS`, default 1 hour).
-7. **No wasted retries:** only invalid JSON (1 retry per model) and retryable HTTP errors (429/5xx/timeouts) trigger another call.
+7. **No wasted retries:** only invalid JSON (1 retry per model), a transient provider 5xx (1 retry after 2 s) and retryable errors (429/timeouts, which go straight to the fallback model) trigger another call.
 8. **Fail before spending:** invalid URLs, SSRF, missing key and unreachable/empty sites are rejected before any LLM call.
 9. *Possible next steps:* provider batch APIs (about half price) for bulk jobs, prompt caching for the fixed system prompt,
    and a persistent cache (Redis) in production.
@@ -228,33 +269,35 @@ Priority for this project: low cost, reliable JSON, good understanding of a page
 
 | Item | Value |
 |---|---|
-| Recommended provider / model | **Google Gemini / `gemini-3.8-flash`** (free tier for development and demo) |
-| Fallback model | `gemini-3.5-flash-lite` (automatic); alternative provider: Anthropic `claude-haiku-5-5` |
-| Estimated input tokens | ~6,000 (≈3,000 page text + ≈1,300 system prompt/schema + page metadata and overhead) |
-| Estimated output tokens | ~2,500 (five sections as JSON; more if the model "thinks") |
-| Estimated cost per analysis | **$0 on the free tier**; ~$0.014 paid until 31 Dec 2026, ~$0.028 after that (Gemini 3.8 Flash) |
-| Expected response time | Roughly 5-30 s (**estimate, not measured**) |
-| Reason | Free to develop and demo, native JSON mode, small paid price, and a second free-tier model as fallback |
-| Balancing accuracy, speed, cost | Cheap, fast model by default; validate output strictly; retry once; fall back to a second model; cache repeats; upgrade to a larger model only if your own evaluation shows the cheap one is not good enough |
+| Recommended provider / model | **Google Gemini / `gemini-3.5-flash-lite`** (free tier for development and demo) |
+| Fallback model | `gemini-3.8-flash` (automatic); alternative provider: Anthropic `claude-haiku-5-5` |
+| Input tokens | **Measured:** 1,169 on a small page (964 characters of text). **Estimated:** ~6,000 for a typical company page (capped by `MAX_CONTENT_CHARS`) |
+| Output tokens | **Measured:** 2,314-2,362. Estimated ~2,500 |
+| Cost per analysis | **$0 on the free tier.** Paid, at the measured tokens: ~$0.006 (flash-lite), ~$0.0095 (3.8 Flash until 31 Dec 2026), ~$0.0013 (Haiku 5.5, but see the note on its token use above). At the estimated 6,000 / 2,500 tokens: ~$0.008 (flash-lite) |
+| Response time | **Measured:** about 6.4-6.8 s for the LLM call and 7.0 s end to end on the deployed app |
+| Reason | Free to develop and demo, native JSON mode, small paid price, fast in practice, and a second free-tier model as fallback |
+| Balancing accuracy, speed, cost | Cheap, fast model by default; strict validation; one retry; automatic fallback to a larger model; cache for repeats; upgrade to a larger model only if your own evaluation shows the cheap one is not good enough |
 
 ### Measured vs estimated
 
-- **Estimated:** token counts, cost per analysis, expected latency.
-- **Measured (by the API itself):** every response contains `meta.input_tokens`, `meta.output_tokens`, `meta.llm_latency_ms`
-  and `meta.total_latency_ms` for that call.
-- **Not done:** an accuracy benchmark. To compare models fairly, run the same 5-10 websites with each
-  `LLM_MODEL`, and score services/competitors/queries by hand.
+- **Measured (returned by the API in `meta` on every call):** input/output tokens, `llm_latency_ms`, `total_latency_ms`.
+- **Estimated:** cost per analysis, behaviour on larger pages, other providers' speed.
+- **Not done:** an accuracy benchmark. No model is claimed to be the "most accurate". To compare fairly, run the same 5-10
+  websites with each `LLM_MODEL` and score services, competitors and queries by hand.
 
-Fill this table after running the project with your key:
+Real runs (author's portfolio site, `https://osama-sadek-dev.vercel.app`):
 
-| Website | Model | Input tokens | Output tokens | LLM latency (ms) | Notes |
-|---|---|---|---|---|---|
-| _your test 1_ | gemini-3.8-flash | | | | |
-| _your test 2_ | gemini-3.5-flash-lite | | | | |
+| Run | Where | Model that answered | Input tokens | Output tokens | LLM latency (ms) | Total (ms) | Notes |
+|---|---|---|---|---|---|---|---|
+| 1 | Local, Swagger | gemini-3.5-flash-lite (fallback) | 1,169 | 2,362 | 6,407 | 107,734 | Main model at that time (`gemini-3.8-flash`) did not answer; ~100 s lost before the fallback |
+| 2 | Vercel production | gemini-3.5-flash-lite | 1,169 | 2,314 | 6,849 | 7,028 | Models set through environment variables |
+
+Add more rows by calling the API on other websites and copying the numbers from `meta`.
 
 ## Evidence of a real run
 
-Add screenshots / logs here after your own run (Swagger UI, a real `POST /link-analysis` response, the passing tests):
+Deployed on Vercel and tested end to end. Add your screenshots / logs here (Swagger UI, a `POST /link-analysis`
+response, the passing tests):
 
 <!-- ![Swagger UI](docs/screenshots/swagger.png)
 ![Real response](docs/screenshots/response.png)

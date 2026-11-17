@@ -13,7 +13,7 @@ except ImportError:  # pragma: no cover
 
 # provider -> (default model, default fallback model)
 DEFAULT_MODELS: dict[str, tuple[str, str]] = {
-    "gemini": ("gemini-3.8-flash", "gemini-3.5-flash-lite"),
+    "gemini": ("gemini-3.5-flash-lite", "gemini-3.8-flash"),
     "openai": ("gpt-5.4-nano", "gpt-5.4-mini"),
     "anthropic": ("claude-haiku-5-5", "claude-sonnet-5-5"),
 }
