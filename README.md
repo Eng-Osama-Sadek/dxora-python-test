@@ -299,12 +299,11 @@ All three runs used the same small website. Add more rows by calling the API on 
 
 ## Evidence of a real run
 
-Deployed on Vercel and tested end to end. Add your screenshots / logs here (Swagger UI, a `POST /link-analysis`
-response, the passing tests):
+Deployed on Vercel and tested end to end (live demo: https://dxora-python-test.vercel.app/docs).
 
-<!-- ![Swagger UI](docs/screenshots/swagger.png)
-![Real response](docs/screenshots/response.png)
-![Tests](docs/screenshots/tests.png) -->
+**Real response (`POST /link-analysis`)**
+
+![Real response](docs/screenshots/response.jpg)
 
 ## Limitations
 
