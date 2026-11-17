@@ -9,7 +9,7 @@ import logging
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.config import get_settings
 from app.schemas import LinkAnalysisRequest, LinkAnalysisResponse
@@ -29,6 +29,11 @@ app = FastAPI(
         "competitors, top search queries, SEO improvements, top services and target audience."
     ),
 )
+
+
+@app.get("/", include_in_schema=False)
+async def redirect_to_docs() -> RedirectResponse:
+    return RedirectResponse(url="/docs")
 
 
 def _error(status: int, message: str, details: list[dict] | None = None) -> JSONResponse:
